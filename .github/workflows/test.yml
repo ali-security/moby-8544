@@ -17,15 +17,16 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'master'
+      - master
       - '[0-9]+.[0-9]+'
       - '[0-9]+.x'
+      - main
   pull_request:
 
 env:
-  GO_VERSION: "1.24.5"
-  GIT_PAGER: "cat"
-  PAGER: "cat"
+  GO_VERSION: 1.24.5
+  GIT_PAGER: cat
+  PAGER: cat
   SETUP_BUILDX_VERSION: edge
   SETUP_BUILDKIT_IMAGE: moby/buildkit:latest
 
@@ -42,24 +43,21 @@ jobs:
       fail-fast: false
       matrix:
         mode:
-          - ""
+          - ''
           - systemd
     steps:
-      -
-        name: Prepare
+      - name: Prepare
         run: |
           if [ "${{ matrix.mode }}" = "systemd" ]; then
             echo "SYSTEMD=true" >> $GITHUB_ENV
           fi
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           version: ${{ env.SETUP_BUILDX_VERSION }}
           driver-opts: image=${{ env.SETUP_BUILDKIT_IMAGE }}
           buildkitd-flags: --debug
-      -
-        name: Build dev image
+      - name: Build dev image
         uses: docker/bake-action@v6
         with:
           targets: dev
@@ -98,17 +96,14 @@ jobs:
     outputs:
       matrix: ${{ steps.scripts.outputs.matrix }}
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Create matrix
+      - name: Create matrix
         id: scripts
         run: |
           scripts=$(cd ./hack/validate && jq -nc '$ARGS.positional - ["all", "default", "dco"] | map(select(test("[.]")|not)) + ["generate-files"]' --args *)
           echo "matrix=$scripts" >> $GITHUB_OUTPUT
-      -
-        name: Show matrix
+      - name: Show matrix
         run: |
           echo ${{ steps.scripts.outputs.matrix }}
 
@@ -123,30 +118,25 @@ jobs:
       matrix:
         script: ${{ fromJson(needs.validate-prepare.outputs.matrix) }}
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      -
-        name: Set up runner
+      - name: Set up runner
         uses: ./.github/actions/setup-runner
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           version: ${{ env.SETUP_BUILDX_VERSION }}
           driver-opts: image=${{ env.SETUP_BUILDKIT_IMAGE }}
           buildkitd-flags: --debug
-      -
-        name: Build dev image
+      - name: Build dev image
         uses: docker/bake-action@v6
         with:
           targets: dev
           set: |
             dev.cache-from=type=gha,scope=dev
-      -
-        name: Validate
+      - name: Validate
         run: |
           make -o build validate-${{ matrix.script }}
 
@@ -158,17 +148,14 @@ jobs:
     outputs:
       matrix: ${{ steps.platforms.outputs.matrix }}
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Create matrix
+      - name: Create matrix
         id: platforms
         run: |
           matrix="$(docker buildx bake binary-smoketest --print | jq -cr '.target."binary-smoketest".platforms')"
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
-      -
-        name: Show matrix
+      - name: Show matrix
         run: |
           echo ${{ steps.platforms.outputs.matrix }}
 
@@ -182,23 +169,19 @@ jobs:
       matrix:
         platform: ${{ fromJson(needs.smoke-prepare.outputs.matrix) }}
     steps:
-      -
-        name: Prepare
+      - name: Prepare
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
-      -
-        name: Set up QEMU
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           version: ${{ env.SETUP_BUILDX_VERSION }}
           driver-opts: image=${{ env.SETUP_BUILDKIT_IMAGE }}
           buildkitd-flags: --debug
-      -
-        name: Test
+      - name: Test
         uses: docker/bake-action@v6
         with:
           targets: binary-smoketest

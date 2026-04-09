@@ -16,7 +16,7 @@ on:
   workflow_call:
 
 env:
-  GO_VERSION: "1.24.5"
+  GO_VERSION: 1.24.5
   GOTESTLIST_VERSION: v0.3.1
   TESTSTAT_VERSION: v0.1.25
   SETUP_BUILDX_VERSION: edge
@@ -31,17 +31,14 @@ jobs:
       fail-fast: false
       matrix:
         mode:
-          - ""
+          - ''
           - firewalld
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Set up runner
+      - name: Set up runner
         uses: ./.github/actions/setup-runner
-      -
-        name: Prepare
+      - name: Prepare
         run: |
           CACHE_DEV_SCOPE=dev
           if [[ "${{ matrix.mode }}" == *"firewalld"* ]]; then
@@ -49,26 +46,22 @@ jobs:
             CACHE_DEV_SCOPE="${CACHE_DEV_SCOPE}firewalld"
           fi
           echo "CACHE_DEV_SCOPE=${CACHE_DEV_SCOPE}" >> $GITHUB_ENV
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           version: ${{ env.SETUP_BUILDX_VERSION }}
           driver-opts: image=${{ env.SETUP_BUILDKIT_IMAGE }}
           buildkitd-flags: --debug
-      -
-        name: Build dev image
+      - name: Build dev image
         uses: docker/bake-action@v6
         with:
           targets: dev
           set: |
             dev.cache-from=type=gha,scope=${{ env.CACHE_DEV_SCOPE }}
-      -
-        name: Test
+      - name: Test
         run: |
           make -o build test-unit
-      -
-        name: Prepare reports
+      - name: Prepare reports
         if: always()
         run: |
           mkdir -p bundles /tmp/reports
@@ -76,16 +69,14 @@ jobs:
           tar -xzf /tmp/reports.tar.gz -C /tmp/reports
           sudo chown -R $(id -u):$(id -g) /tmp/reports
           tree -nh /tmp/reports
-      -
-        name: Send to Codecov
+      - name: Send to Codecov
         uses: codecov/codecov-action@v4
         with:
           directory: ./bundles
           env_vars: RUNNER_OS
           flags: unit
           token: ${{ secrets.CODECOV_TOKEN }}  # used to upload coverage reports: https://github.com/moby/buildkit/pull/4660#issue-2142122533
-      -
-        name: Upload reports
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -101,23 +92,19 @@ jobs:
     needs:
       - unit
     steps:
-      -
-        name: Set up Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: vendor.sum
-      -
-        name: Download reports
+      - name: Download reports
         uses: actions/download-artifact@v4
         with:
           pattern: test-reports-unit-*
           path: /tmp/reports
-      -
-        name: Install teststat
+      - name: Install teststat
         run: |
           go install github.com/vearutop/teststat@${{ env.TESTSTAT_VERSION }}
-      -
-        name: Create summary
+      - name: Create summary
         run: |
           find /tmp/reports -type f -name '*-go-test-report.json' -exec teststat -markdown {} \+ >> $GITHUB_STEP_SUMMARY

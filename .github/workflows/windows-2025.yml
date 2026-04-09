@@ -17,9 +17,10 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'master'
+      - master
       - '[0-9]+.[0-9]+'
       - '[0-9]+.x'
+      - main
   pull_request:
 
 jobs:
