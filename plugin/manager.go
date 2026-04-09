@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -337,34 +336,63 @@ func makeLoggerStreams(id string) (stdout, stderr io.WriteCloser) {
 }
 
 func validatePrivileges(requiredPrivileges, privileges types.PluginPrivileges) error {
-	if !isEqual(requiredPrivileges, privileges, isEqualPrivilege) {
+	if len(requiredPrivileges) != len(privileges) {
 		return errors.New("incorrect privileges")
+	}
+
+	a := normalizePrivileges(requiredPrivileges)
+	b := normalizePrivileges(privileges)
+
+	for i := range a {
+		if a[i].Name != b[i].Name {
+			return errors.New("incorrect privileges")
+		}
+		if !equalStringSlices(a[i].Value, b[i].Value) {
+			return errors.New("incorrect privileges")
+		}
 	}
 
 	return nil
 }
 
-func isEqual(arrOne, arrOther types.PluginPrivileges, compare func(x, y types.PluginPrivilege) bool) bool {
-	if len(arrOne) != len(arrOther) {
-		return false
+// normalizePrivileges returns a normalized copy of privileges with privilege names
+// and each privilege's values sorted for order-insensitive comparison.
+// The input is not mutated.
+func normalizePrivileges(privileges types.PluginPrivileges) types.PluginPrivileges {
+	normalized := make(types.PluginPrivileges, len(privileges))
+	for i, privilege := range privileges {
+		normalized[i] = types.PluginPrivilege{
+			Name:        privilege.Name,
+			Description: privilege.Description,
+			Value:       cloneStringSlice(privilege.Value),
+		}
+		sort.Strings(normalized[i].Value)
 	}
 
-	sort.Sort(arrOne)
-	sort.Sort(arrOther)
+	sort.Sort(normalized)
 
-	for i := 1; i < arrOne.Len(); i++ {
-		if !compare(arrOne[i], arrOther[i]) {
+	return normalized
+}
+
+// cloneStringSlice returns a copy of the input slice
+func cloneStringSlice(s []string) []string {
+	if s == nil {
+		return nil
+	}
+	clone := make([]string, len(s))
+	copy(clone, s)
+	return clone
+}
+
+// equalStringSlices checks if two string slices are equal
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
 			return false
 		}
 	}
-
 	return true
-}
-
-func isEqualPrivilege(a, b types.PluginPrivilege) bool {
-	if a.Name != b.Name {
-		return false
-	}
-
-	return reflect.DeepEqual(a.Value, b.Value)
 }
